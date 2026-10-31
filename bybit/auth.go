@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	rt "github.com/plusev-terminal/go-plugin-common/requester/types"
-	utils "github.com/plusev-terminal/go-plugin-common/wasmutils"
+	rt "github.com/plusev-terminal/go-plugin-common/v2/requester/types"
+	utils "github.com/plusev-terminal/go-plugin-common/v2/wasmutils"
 )
 
 

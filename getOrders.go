@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	acct "github.com/plusev-terminal/go-plugin-common/datasrc/exchange/account"
-	"github.com/plusev-terminal/go-plugin-common/plugin"
+	acct "github.com/plusev-terminal/go-plugin-common/v2/datasrc/exchange/account"
+	"github.com/plusev-terminal/go-plugin-common/v2/plugin"
 	"github.com/trading-peter/plusev_datasource_bybit_plugin/bybit"
 )
 
@@ -84,10 +84,10 @@ func normalizeBybitOrder(o bybit.Order, category string) acct.Order {
 		ExecutedQuantity:  o.CumExecQty,
 		RemainingQuantity: o.LeavesQty,
 		ReduceOnly:        o.ReduceOnly,
+		TriggerPrice:      o.TriggerPrice,
 		Components: map[string]string{
 			"category":      category,
 			"time_in_force": o.TimeInForce,
-			"trigger_price": o.TriggerPrice,
 			"take_profit":   o.TakeProfit,
 			"stop_loss":     o.StopLoss,
 		},

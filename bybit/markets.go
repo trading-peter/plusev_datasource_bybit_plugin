@@ -5,14 +5,14 @@ import (
 	"strconv"
 	"strings"
 
-	rt "github.com/plusev-terminal/go-plugin-common/requester/types"
-	tt "github.com/plusev-terminal/go-plugin-common/trading"
+	rt "github.com/plusev-terminal/go-plugin-common/v2/requester/types"
+	tt "github.com/plusev-terminal/go-plugin-common/v2/trading"
 )
 
 
 // AssetTypeToCategory maps Terminal's AssetType to Bybit's category parameter.
-func AssetTypeToCategory(assetType string) string {
-	switch strings.ToLower(strings.TrimSpace(assetType)) {
+func AssetTypeToCategory(assetType tt.AssetType) string {
+	switch strings.ToLower(strings.TrimSpace(string(assetType))) {
 	case "spot":
 		return "spot"
 	case "perpetual", "futures", "linear":
@@ -111,7 +111,7 @@ func instrumentToMarket(inst Instrument, category string) tt.Market {
 		return tt.Market{}
 	}
 
-	var assetType string
+	var assetType tt.AssetType
 	var label string
 
 	base := strings.ToUpper(inst.BaseCoin)

@@ -4,9 +4,9 @@ import (
 	"strings"
 	"time"
 
-	ex "github.com/plusev-terminal/go-plugin-common/datasrc/exchange"
-	acct "github.com/plusev-terminal/go-plugin-common/datasrc/exchange/account"
-	"github.com/plusev-terminal/go-plugin-common/plugin"
+	ex "github.com/plusev-terminal/go-plugin-common/v2/datasrc/exchange"
+	acct "github.com/plusev-terminal/go-plugin-common/v2/datasrc/exchange/account"
+	"github.com/plusev-terminal/go-plugin-common/v2/plugin"
 	"github.com/trading-peter/plusev_datasource_bybit_plugin/bybit"
 )
 

@@ -3,9 +3,9 @@ package main
 import (
 	"strings"
 
-	ex "github.com/plusev-terminal/go-plugin-common/datasrc/exchange"
-	"github.com/plusev-terminal/go-plugin-common/plugin"
-	commonstream "github.com/plusev-terminal/go-plugin-common/stream"
+	ex "github.com/plusev-terminal/go-plugin-common/v2/datasrc/exchange"
+	"github.com/plusev-terminal/go-plugin-common/v2/plugin"
+	commonstream "github.com/plusev-terminal/go-plugin-common/v2/stream"
 )
 
 
@@ -18,7 +18,7 @@ func (p *BybitPlugin) handleOHLCVStream(params map[string]any) plugin.Response {
 		return plugin.ErrorResponseMsg("market.symbol is required")
 	}
 
-	assetType := strings.TrimSpace(streamParams.Market.AssetType)
+	assetType := strings.TrimSpace(string(streamParams.Market.AssetType))
 
 	streamReq := plugin.StreamSetupRequest{
 		StreamID:   "bybit_ohlcv_" + streamParams.Market.Symbol + "_" + streamParams.Timeframe,

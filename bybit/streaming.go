@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/plusev-terminal/go-plugin-common/plugin"
-	tt "github.com/plusev-terminal/go-plugin-common/trading"
+	"github.com/plusev-terminal/go-plugin-common/v2/plugin"
+	tt "github.com/plusev-terminal/go-plugin-common/v2/trading"
 )
 
 
@@ -37,7 +37,7 @@ func (c *Client) PrepareStream(request plugin.StreamSetupRequest) (plugin.Stream
 	}
 
 	// Determine category for the WS URL path
-	category := AssetTypeToCategory(assetType)
+	category := AssetTypeToCategory(tt.AssetType(assetType))
 
 	// Build WebSocket URL
 	wsURL := fmt.Sprintf("%s/v5/public/%s", c.wsBaseURL, category)

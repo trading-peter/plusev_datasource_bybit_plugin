@@ -5,10 +5,10 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/plusev-terminal/go-plugin-common/datasrc/exchange"
-	rt "github.com/plusev-terminal/go-plugin-common/requester/types"
-	tt "github.com/plusev-terminal/go-plugin-common/trading"
-	utils "github.com/plusev-terminal/go-plugin-common/wasmutils"
+	"github.com/plusev-terminal/go-plugin-common/v2/datasrc/exchange"
+	rt "github.com/plusev-terminal/go-plugin-common/v2/requester/types"
+	tt "github.com/plusev-terminal/go-plugin-common/v2/trading"
+	utils "github.com/plusev-terminal/go-plugin-common/v2/wasmutils"
 )
 
 

@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/plusev-terminal/go-plugin-common/plugin"
+	"github.com/plusev-terminal/go-plugin-common/v2/plugin"
 )
 
 

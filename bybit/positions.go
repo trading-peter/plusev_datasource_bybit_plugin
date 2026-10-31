@@ -3,7 +3,7 @@ package bybit
 import (
 	"fmt"
 
-	rt "github.com/plusev-terminal/go-plugin-common/requester/types"
+	rt "github.com/plusev-terminal/go-plugin-common/v2/requester/types"
 )
 
 
