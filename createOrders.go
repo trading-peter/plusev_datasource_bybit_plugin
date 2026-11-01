@@ -55,6 +55,8 @@ func (p *BybitPlugin) handleCreateOrders(params map[string]any) plugin.Response 
 			Type:          order.Type,
 			Quantity:      order.Quantity,
 			Price:         order.Price,
+			TriggerPrice:  req.TriggerPrice,
+			TriggerSource: order.TriggerSource,
 		}
 
 		results[i].Order = createdOrder
@@ -69,7 +71,9 @@ func (p *BybitPlugin) handleCreateOrders(params map[string]any) plugin.Response 
 }
 
 
-// buildBybitCreateOrderRequest converts a normalized CreateOrderParams to a Bybit CreateOrderRequest.
+// buildBybitCreateOrderRequest converts a normalized CreateOrderParams to a
+// Bybit CreateOrderRequest. Order capabilities (GetOrderCapabilities) declare
+// exactly what this builder sends — keep the two in sync.
 func buildBybitCreateOrderRequest(order ex.CreateOrderParams) (bybit.CreateOrderRequest, error) {
 	category := bybit.AssetTypeToCategory(order.Market.AssetType)
 	symbol := strings.TrimSpace(order.Market.Symbol)
@@ -77,14 +81,30 @@ func buildBybitCreateOrderRequest(order ex.CreateOrderParams) (bybit.CreateOrder
 		return bybit.CreateOrderRequest{}, errString("market.symbol is required")
 	}
 
+	if order.TimeInForce == acct.TimeInForceGTD {
+		// Bybit v5 has no GTD timeInForce and no expireTime parameter on
+		// /v5/order/create; GTD stays undeclared so the host rejects it, and
+		// this guards against a silent downgrade to GTC.
+		return bybit.CreateOrderRequest{}, errString("timeInForce gtd is not supported by Bybit v5")
+	}
+
 	side := normalizeSideToBybit(order.Side)
 	qty := order.Quantity
 	price := strings.TrimSpace(order.Price)
 
+	// Trigger resolution (v2.1.0 contract): TriggerPrice is THE activation
+	// price; StopPrice/TakeProfitPrice are aliases consumed by the matching
+	// order type — an alias that names this order's type is never ALSO
+	// attached as a TP/SL leg.
+	trigger := strings.TrimSpace(order.TriggerPrice)
+	stopAlias := strings.TrimSpace(order.StopPrice)
+	tpAlias := strings.TrimSpace(order.TakeProfitPrice)
+	isStopType := order.Type == acct.OrderTypeStop || order.Type == acct.OrderTypeStopMarket || order.Type == acct.OrderTypeStopLimit
+	isTPType := order.Type == acct.OrderTypeTakeProfit || order.Type == acct.OrderTypeTakeProfitMarket || order.Type == acct.OrderTypeTakeProfitLimit
+
 	// Determine order type and Bybit-specific fields
 	var orderType string
 	var timeInForce string
-	var triggerPrice string
 	var triggerDirection int
 	var takeProfit string
 	var stopLoss string
@@ -99,7 +119,9 @@ func buildBybitCreateOrderRequest(order ex.CreateOrderParams) (bybit.CreateOrder
 
 	case acct.OrderTypeStop, acct.OrderTypeStopMarket:
 		orderType = "Market"
-		triggerPrice = firstNonEmpty(order.TriggerPrice, order.StopPrice)
+		if trigger == "" {
+			trigger = stopAlias
+		}
 		if order.Side == acct.OrderSideSell {
 			triggerDirection = 2 // price falls
 		} else {
@@ -108,7 +130,9 @@ func buildBybitCreateOrderRequest(order ex.CreateOrderParams) (bybit.CreateOrder
 
 	case acct.OrderTypeStopLimit:
 		orderType = "Limit"
-		triggerPrice = firstNonEmpty(order.TriggerPrice, order.StopPrice)
+		if trigger == "" {
+			trigger = stopAlias
+		}
 		if price == "" {
 			return bybit.CreateOrderRequest{}, errString("price is required for stop_limit orders")
 		}
@@ -120,7 +144,9 @@ func buildBybitCreateOrderRequest(order ex.CreateOrderParams) (bybit.CreateOrder
 
 	case acct.OrderTypeTakeProfit, acct.OrderTypeTakeProfitMarket:
 		orderType = "Market"
-		triggerPrice = firstNonEmpty(order.TriggerPrice, order.TakeProfitPrice)
+		if trigger == "" {
+			trigger = tpAlias
+		}
 		if order.Side == acct.OrderSideSell {
 			triggerDirection = 1 // price rises to TP
 		} else {
@@ -129,7 +155,9 @@ func buildBybitCreateOrderRequest(order ex.CreateOrderParams) (bybit.CreateOrder
 
 	case acct.OrderTypeTakeProfitLimit:
 		orderType = "Limit"
-		triggerPrice = firstNonEmpty(order.TriggerPrice, order.TakeProfitPrice)
+		if trigger == "" {
+			trigger = tpAlias
+		}
 		if price == "" {
 			return bybit.CreateOrderRequest{}, errString("price is required for take_profit_limit orders")
 		}
@@ -139,23 +167,25 @@ func buildBybitCreateOrderRequest(order ex.CreateOrderParams) (bybit.CreateOrder
 			triggerDirection = 2
 		}
 
-	case acct.OrderTypeTrailingStop:
-		orderType = "Market"
-		triggerPrice = firstNonEmpty(order.ActivationPrice, order.TriggerPrice)
-
 	default:
+		// trailing_stop included on purpose: /v5/order/create has no
+		// trailing-distance parameter, so a trailing stop cannot be expressed
+		// and must fail loudly instead of degrading into a plain conditional
+		// order that silently drops the distance.
 		return bybit.CreateOrderRequest{}, errString("unsupported order type: " + string(order.Type))
 	}
 
 	// Time-in-force
 	switch {
-	case order.PostOnly:
+	case order.PostOnly || order.TimeInForce == acct.TimeInForcePostOnly:
 		timeInForce = "PostOnly"
 	case order.TimeInForce == acct.TimeInForceIOC:
 		timeInForce = "IOC"
 	case order.TimeInForce == acct.TimeInForceFOK:
 		timeInForce = "FOK"
 	case order.TimeInForce == acct.TimeInForceGTX:
+		// GTX (maker-only on Binance) has no Bybit enum; Bybit's PostOnly is
+		// the same policy.
 		timeInForce = "PostOnly"
 	default:
 		if orderType == "Limit" {
@@ -165,13 +195,14 @@ func buildBybitCreateOrderRequest(order ex.CreateOrderParams) (bybit.CreateOrder
 		}
 	}
 
-	// Attached TP/SL on the order itself
-	if tp := strings.TrimSpace(order.TakeProfitPrice); tp != "" {
-		takeProfit = tp
+	// Attached TP/SL on the order itself — only the alias NOT consumed as
+	// this order's own trigger.
+	if tpAlias != "" && !isTPType {
+		takeProfit = tpAlias
 	}
 
-	if sl := strings.TrimSpace(order.StopPrice); sl != "" {
-		stopLoss = sl
+	if stopAlias != "" && !isStopType {
+		stopLoss = stopAlias
 	}
 
 	// Spot market buy: use quote quantity if QuoteQuantity is set
@@ -197,8 +228,9 @@ func buildBybitCreateOrderRequest(order ex.CreateOrderParams) (bybit.CreateOrder
 		TakeProfit:       takeProfit,
 		StopLoss:         stopLoss,
 		PositionIdx:      0,
-		TriggerPrice:     triggerPrice,
+		TriggerPrice:     trigger,
 		TriggerDirection: triggerDirection,
+		TriggerBy:        bybit.TriggerSourceToBybit(order.TriggerSource),
 		MarketUnit:       marketUnit,
 	}
 
@@ -220,15 +252,6 @@ func normalizeSideToBybit(side acct.OrderSide) string {
 	return "Buy"
 }
 
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
-}
 
 
 type errString string

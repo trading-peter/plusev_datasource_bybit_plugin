@@ -73,18 +73,23 @@ func (p *BybitPlugin) handleGetOrders(params map[string]any) plugin.Response {
 
 func normalizeBybitOrder(o bybit.Order, category string) acct.Order {
 	order := acct.Order{
-		OrderID:           o.OrderID,
-		ClientOrderID:     o.OrderLinkId,
-		Symbol:            o.Symbol,
-		Side:              normalizeBybitOrderSide(o.Side),
-		Type:              normalizeBybitOrderType(o.OrderType, o.StopOrderType),
-		Status:            normalizeBybitOrderStatus(o.OrderStatus),
-		Price:             o.Price,
+		OrderID:       o.OrderID,
+		ClientOrderID: o.OrderLinkId,
+		Symbol:        o.Symbol,
+		Side:          normalizeBybitOrderSide(o.Side),
+		Type:          normalizeBybitOrderType(o.OrderType, o.StopOrderType),
+		Status:        normalizeBybitOrderStatus(o.OrderStatus),
+
+		// Bybit fills unused price fields with "0" placeholders; absent
+		// prices are the empty string in the normalized shape.
+		Price:             acct.OptionalPrice(o.Price),
 		Quantity:          o.Qty,
 		ExecutedQuantity:  o.CumExecQty,
 		RemainingQuantity: o.LeavesQty,
 		ReduceOnly:        o.ReduceOnly,
-		TriggerPrice:      o.TriggerPrice,
+		TriggerPrice:      acct.OptionalPrice(o.TriggerPrice),
+		TriggerSource:     bybit.TriggerSourceFromBybit(o.TriggerBy),
+
 		Components: map[string]string{
 			"category":      category,
 			"time_in_force": o.TimeInForce,
@@ -94,8 +99,8 @@ func normalizeBybitOrder(o bybit.Order, category string) acct.Order {
 		Extra: map[string]any{},
 	}
 
-	if o.AvgPrice != "" && o.AvgPrice != "0" {
-		order.AveragePrice = o.AvgPrice
+	if avg := acct.OptionalPrice(o.AvgPrice); avg != "" {
+		order.AveragePrice = avg
 	}
 
 	if t := parseBybitTimestamp(o.CreatedTime); !t.IsZero() {

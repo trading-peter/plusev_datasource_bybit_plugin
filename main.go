@@ -5,10 +5,12 @@ import (
 	"time"
 
 	ex "github.com/plusev-terminal/go-plugin-common/v2/datasrc/exchange"
+	acct "github.com/plusev-terminal/go-plugin-common/v2/datasrc/exchange/account"
 	"github.com/plusev-terminal/go-plugin-common/v2/logging"
 	m "github.com/plusev-terminal/go-plugin-common/v2/meta"
 	"github.com/plusev-terminal/go-plugin-common/v2/plugin"
 	"github.com/plusev-terminal/go-plugin-common/v2/requester"
+	tt "github.com/plusev-terminal/go-plugin-common/v2/trading"
 	"github.com/trading-peter/plusev_datasource_bybit_plugin/bybit"
 )
 
@@ -125,6 +127,58 @@ func bybitAPILimits() []m.RateLimitRule {
 // two layers don't double-throttle.
 func (p *BybitPlugin) GetRateLimits() []plugin.RateLimit {
 	return []plugin.RateLimit{}
+}
+
+// GetOrderCapabilities declares the order features the Bybit v5 create path
+// really implements — keep in sync with buildBybitCreateOrderRequest; the
+// host rejects any order feature not declared here.
+//
+//   - AssetTypes are the categories GetMarkets publishes: spot (category
+//     spot) and perpetual/futures (both routed to category linear).
+//   - Conditional orders send triggerPrice + triggerDirection, and
+//     TriggerSource maps to v5 triggerBy (LastPrice/MarkPrice/IndexPrice).
+//     An empty TriggerSource sends no triggerBy and Bybit applies its own
+//     default, LastPrice.
+//   - GTD stays undeclared: v5 has no GTD timeInForce and no expireTime
+//     parameter. Trailing stops stay undeclared for the same reason —
+//     /v5/order/create carries no trailing distance — as do ClosePosition,
+//     PositionSide (PositionIdx is pinned to one-way mode) and every Extra
+//     key (the create path reads none).
+func (p *BybitPlugin) GetOrderCapabilities() ex.OrderCapabilities {
+	return ex.OrderCapabilities{
+		AssetTypes: []tt.AssetType{
+			tt.AssetTypeSpot,
+			tt.AssetTypePerpetual,
+			tt.AssetTypeFutures,
+		},
+		OrderTypes: []acct.OrderType{
+			acct.OrderTypeLimit,
+			acct.OrderTypeMarket,
+			acct.OrderTypeStop,
+			acct.OrderTypeStopMarket,
+			acct.OrderTypeStopLimit,
+			acct.OrderTypeTakeProfit,
+			acct.OrderTypeTakeProfitMarket,
+			acct.OrderTypeTakeProfitLimit,
+		},
+		TimeInForce: []acct.TimeInForce{
+			acct.TimeInForceGTC,
+			acct.TimeInForceIOC,
+			acct.TimeInForceFOK,
+			acct.TimeInForcePostOnly,
+			acct.TimeInForceGTX,
+		},
+		TriggerSources: []acct.TriggerSource{
+			acct.TriggerSourceLast,
+			acct.TriggerSourceMark,
+			acct.TriggerSourceIndex,
+		},
+		DefaultTriggerSource: acct.TriggerSourceLast,
+		ReduceOnly:           true,
+		PostOnly:             true,
+		QuoteQuantity:        true,
+		ClientOrderID:        true,
+	}
 }
 
 // GetConfigFields returns the configuration fields needed by this plugin

@@ -3,9 +3,44 @@ package bybit
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	acct "github.com/plusev-terminal/go-plugin-common/v2/datasrc/exchange/account"
 	rt "github.com/plusev-terminal/go-plugin-common/v2/requester/types"
 )
+
+
+// TriggerSourceToBybit maps the normalized TriggerSource (last/mark/index)
+// to Bybit v5's triggerBy price type. The empty (venue-default) source maps
+// to the empty string so triggerBy is omitted and Bybit applies its own
+// default, LastPrice.
+func TriggerSourceToBybit(src acct.TriggerSource) string {
+	switch src {
+	case acct.TriggerSourceLast:
+		return "LastPrice"
+	case acct.TriggerSourceMark:
+		return "MarkPrice"
+	case acct.TriggerSourceIndex:
+		return "IndexPrice"
+	}
+	return ""
+}
+
+
+// TriggerSourceFromBybit is the read-side inverse of TriggerSourceToBybit:
+// Bybit's triggerBy maps back to the normalized TriggerSource, and an absent
+// triggerBy (venue default) stays empty.
+func TriggerSourceFromBybit(triggerBy string) acct.TriggerSource {
+	switch strings.ToUpper(strings.TrimSpace(triggerBy)) {
+	case "LASTPRICE":
+		return acct.TriggerSourceLast
+	case "MARKPRICE":
+		return acct.TriggerSourceMark
+	case "INDEXPRICE":
+		return acct.TriggerSourceIndex
+	}
+	return ""
+}
 
 
 // GetRealtimeOrders queries open orders for a given category.
