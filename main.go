@@ -51,7 +51,7 @@ func (p *BybitPlugin) GetMeta() m.Meta {
 		Category:    "cex",
 		Description: "Bybit V5 data source — spot, USDT perpetuals, and USDT futures markets",
 		Author:      "trading_peter",
-		Version:     "v1.0.0",
+		Version: "v1.1.0",
 		Repository:  "https://github.com/trading-peter/plusev_datasource_bybit_plugin",
 		Tags:        []string{"bybit", "crypto", "exchange", "perpetual", "spot", "futures"},
 		Contacts: []m.AuthorContact{
