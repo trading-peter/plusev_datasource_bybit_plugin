@@ -137,8 +137,9 @@ type CoinBalance struct {
 type PositionListResponse struct {
 	BybitResponse
 	Result struct {
-		Category string     `json:"category"`
-		List     []Position `json:"list"`
+		Category       string     `json:"category"`
+		List           []Position `json:"list"`
+		NextPageCursor string     `json:"nextPageCursor"`
 	} `json:"result"`
 }
 

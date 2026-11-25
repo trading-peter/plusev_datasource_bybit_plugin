@@ -65,8 +65,7 @@ func (c *Client) GetOHLCV(params exchange.GetOHLCVParams) ([]tt.OHLCVRecord, err
 	case params.StartTime != nil && params.EndTime == nil:
 		// Serve "limit" candles forward from start
 		q.Set("start", strconv.FormatInt(params.StartTime.UnixMilli(), 10))
-		candleMs := int64(tf.ToMinutes()) * 60 * 1000
-		q.Set("end", strconv.FormatInt(params.StartTime.UnixMilli()+int64(limit)*candleMs, 10))
+		q.Set("end", strconv.FormatInt(forwardWindowEnd(params.StartTime.UnixMilli(), tf, limit), 10))
 
 	case params.StartTime == nil && params.EndTime != nil:
 		// Serve "limit" candles back ending at end
@@ -75,8 +74,10 @@ func (c *Client) GetOHLCV(params exchange.GetOHLCVParams) ([]tt.OHLCVRecord, err
 		q.Set("start", strconv.FormatInt(params.EndTime.UnixMilli()-int64(limit)*candleMs, 10))
 
 	case params.StartTime != nil && params.EndTime != nil:
-		q.Set("start", strconv.FormatInt(params.StartTime.UnixMilli(), 10))
-		q.Set("end", strconv.FormatInt(params.EndTime.UnixMilli(), 10))
+		// Window [start, end], clipped so it never exceeds "limit" candles
+		startMs := params.StartTime.UnixMilli()
+		q.Set("start", strconv.FormatInt(startMs, 10))
+		q.Set("end", strconv.FormatInt(min(params.EndTime.UnixMilli(), forwardWindowEnd(startMs, tf, limit)), 10))
 	}
 
 	q.Set("limit", strconv.Itoa(limit))
@@ -132,4 +133,13 @@ func (c *Client) GetOHLCV(params exchange.GetOHLCVParams) ([]tt.OHLCVRecord, err
 	}
 
 	return records, nil
+}
+
+
+// forwardWindowEnd returns the latest end that keeps a start-anchored kline
+// window at "limit" candles. Bybit serves the newest "limit" candles of a
+// [start, end] window (end inclusive), so a wider window silently drops its
+// oldest candles and callers paging forward from start lose data.
+func forwardWindowEnd(startMs int64, tf tt.Timeframe, limit int) int64 {
+	return startMs + int64(limit-1)*int64(tf.ToMinutes())*60*1000
 }
